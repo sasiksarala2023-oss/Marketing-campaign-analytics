@@ -1,0 +1,223 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# --- Load & Prepare Data ---
+data = pd.read_csv("marketing_campaign_data.csv")
+data["Dt_Customer"] = pd.to_datetime(data["Dt_Customer"])
+data["Age"] = 2026 - data["Year_Birth"]
+data["Children"] = data["Kidhome"] + data["Teenhome"]
+data["Total_Spend"] = data[["MntWines","MntFruits","MntMeatProducts",
+                            "MntFishProducts","MntSweetProducts","MntGoldProds"]].sum(axis=1)
+data["Total_Purchases"] = data[["NumDealsPurchases","NumWebPurchases",
+                                "NumCatalogPurchases","NumStorePurchases"]].sum(axis=1)
+
+# --- Dashboard Title ---
+st.title("📈 Marketing Campaign Analytics Dashboard")
+
+# --- Tabs for Business Use Cases ---
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "Campaign Response Rates",
+    "Spending Patterns",
+    "Channel Usage",
+    "Under-Served Segments",
+    "Ideal Target Customers"
+])
+
+# --- Tab 1: Campaign Response Rates ---
+with tab1:
+    st.header("📌 Campaign Response Rates")
+    response_rate = data["Response"].mean() * 100
+    st.metric("Overall Response Rate", f"{response_rate:.1f}%")
+    fig, ax = plt.subplots()
+    sns.barplot(x="Marital_Status", y="Response", data=data, ax=ax)
+    ax.set_title("Response Rate by Marital Status")
+    st.pyplot(fig)
+
+# --- Tab 2: Spending Patterns ---
+with tab2:
+    st.header("🍷 Spending Patterns Across Products")
+    avg_spend = data["Total_Spend"].mean()
+    st.metric("Average Total Spend", f"${avg_spend:,.0f}")
+    spend_cols = ["MntWines","MntFruits","MntMeatProducts",
+                  "MntFishProducts","MntSweetProducts","MntGoldProds"]
+    fig, ax = plt.subplots()
+    data[spend_cols].mean().plot(kind="bar", ax=ax)
+    ax.set_title("Average Spend per Product Category")
+    st.pyplot(fig)
+
+# --- Tab 3: Channel Usage ---
+with tab3:
+    st.header("🛒 Channel Usage by High-Value Customers")
+    threshold = data["Total_Spend"].quantile(0.9)
+    data["HighSpender"] = np.where(data["Total_Spend"] > threshold, 1, 0)
+    avg_web_visits = data["NumWebVisitsMonth"].mean()
+    st.metric("Avg Monthly Web Visits", f"{avg_web_visits:.1f}")
+    fig, ax = plt.subplots()
+    sns.barplot(data=data, x="HighSpender", y="NumWebPurchases", ax=ax)
+    ax.set_title("Web Purchases by High Spenders")
+    st.pyplot(fig)
+
+# --- Tab 4: Under-Served Segments ---
+with tab4:
+    st.header("⚠️ Under-Served Segments")
+    data["UnderServed"] = np.where((data["Total_Spend"] < 1000) &
+                                   (data["NumWebVisitsMonth"] > 10) &
+                                   (data["Response"] == 0), 1, 0)
+    underserved_pct = data["UnderServed"].mean() * 100
+    st.metric("Under-Served Customers", f"{underserved_pct:.1f}%")
+    st.dataframe(data[["Age","Income","Marital_Status","Country","UnderServed"]].head())
+
+# --- Tab 5: Ideal Target Customers ---
+with tab5:
+    st.header("🎯 Ideal Target Customer Profile")
+    ideal = data[(data["Response"] == 1) & (data["Total_Spend"] > data["Total_Spend"].quantile(0.75))]
+    st.metric("Avg Age", f"{ideal['Age'].mean():.1f}")
+    st.metric("Avg Income", f"${ideal['Income'].mean():,.0f}")
+    st.write("Top Countries:", ideal["Country"].value_counts().head())
+with tab1:
+    st.header("📌 Campaign Response Rates")
+    # KPI row
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Overall Response Rate", f"{data['Response'].mean()*100:.1f}%")
+    col2.metric("Campaign 1 Acceptance", f"{data['AcceptedCmp1'].mean()*100:.1f}%")
+    col3.metric("Campaign 5 Acceptance", f"{data['AcceptedCmp5'].mean()*100:.1f}%")
+    # Chart
+    fig, ax = plt.subplots()
+    sns.barplot(x="Marital_Status", y="Response", data=data, ax=ax)
+    ax.set_title("Response Rate by Marital Status")
+    st.pyplot(fig)
+
+with tab2:
+    st.header("🍷 Spending Patterns Across Products")
+    # KPI row
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Avg Wine Spend", f"${data['MntWines'].mean():,.0f}")
+    col2.metric("Avg Meat Spend", f"${data['MntMeatProducts'].mean():,.0f}")
+    col3.metric("Avg Gold Spend", f"${data['MntGoldProds'].mean():,.0f}")
+    # Chart
+    spend_cols = ["MntWines","MntFruits","MntMeatProducts",
+                  "MntFishProducts","MntSweetProducts","MntGoldProds"]
+    fig, ax = plt.subplots()
+    data[spend_cols].mean().plot(kind="bar", ax=ax)
+    ax.set_title("Average Spend per Product Category")
+    st.pyplot(fig)
+
+with tab3:
+    st.header("🛒 Channel Usage by High-Value Customers")
+    # KPI row
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Avg Web Purchases", f"{data['NumWebPurchases'].mean():.1f}")
+    col2.metric("Avg Store Purchases", f"{data['NumStorePurchases'].mean():.1f}")
+    col3.metric("Avg Catalog Purchases", f"{data['NumCatalogPurchases'].mean():.1f}")
+    # Chart
+    fig, ax = plt.subplots()
+    sns.barplot(data=data, x="HighSpender", y="NumWebPurchases", ax=ax)
+    ax.set_title("Web Purchases by High Spenders")
+    st.pyplot(fig)
+
+with tab4:
+    st.header("⚠️ Under-Served Segments")
+    data["UnderServed"] = np.where((data["Total_Spend"] < 1000) &
+                                   (data["NumWebVisitsMonth"] > 10) &
+                                   (data["Response"] == 0), 1, 0)
+    col1, col2 = st.columns(2)
+    col1.metric("Under-Served %", f"{data['UnderServed'].mean()*100:.1f}%")
+    col2.metric("Avg Visits (Under-Served)", f"{data.loc[data['UnderServed']==1,'NumWebVisitsMonth'].mean():.1f}")
+    st.dataframe(data[["Age","Income","Marital_Status","Country","UnderServed"]].head())
+
+with tab5:
+    st.header("🎯 Ideal Target Customer Profile")
+    ideal = data[(data["Response"] == 1) & (data["Total_Spend"] > data["Total_Spend"].quantile(0.75))]
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Avg Age", f"{ideal['Age'].mean():.1f}")
+    col2.metric("Avg Income", f"${ideal['Income'].mean():,.0f}")
+    col3.metric("Avg Children", f"{ideal['Children'].mean():.1f}")
+    st.write("Top Countries:", ideal["Country"].value_counts().head())
+import streamlit as st
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Load dataset
+data = pd.read_csv("marketing_campaign_data.csv")
+data["Dt_Customer"] = pd.to_datetime(data["Dt_Customer"])
+data["Age"] = 2026 - data["Year_Birth"]
+data["Children"] = data["Kidhome"] + data["Teenhome"]
+data["Total_Spend"] = data[["MntWines","MntFruits","MntMeatProducts",
+                            "MntFishProducts","MntSweetProducts","MntGoldProds"]].sum(axis=1)
+data["Total_Purchases"] = data[["NumDealsPurchases","NumWebPurchases",
+                                "NumCatalogPurchases","NumStorePurchases"]].sum(axis=1)
+
+# Segmentation
+data["HighIncome"] = np.where(data["Income"] > 75000, 1, 0)
+data["YoungCustomer"] = np.where(data["Age"] < 30, 1, 0)
+data["Responder"] = data["Response"]
+data["HighWebEngagement"] = np.where(data["NumWebVisitsMonth"] > 5, 1, 0)
+data["FamilyCustomer"] = np.where(data["Children"] > 0, 1, 0)
+threshold = data["Total_Spend"].quantile(0.9)
+data["HighSpender"] = np.where(data["Total_Spend"] > threshold, 1, 0)
+
+# Streamlit UI
+st.title("Marketing Campaign Analytics Dashboard")
+
+# Filters
+st.sidebar.header("Filters")
+age_band = st.sidebar.selectbox("Select Age Band", ["All","<30","30-50",">50"])
+income_band = st.sidebar.selectbox("Select Income Band", ["All","<50k","50k-75k",">75k"])
+
+filtered = data.copy()
+
+# Apply Age filter
+if age_band == "<30":
+    filtered = filtered[filtered["Age"] < 30]
+elif age_band == "30-50":
+    filtered = filtered[(filtered["Age"] >= 30) & (filtered["Age"] <= 50)]
+elif age_band == ">50":
+    filtered = filtered[filtered["Age"] > 50]
+
+# Apply Income filter
+if income_band == "<50k":
+    filtered = filtered[filtered["Income"] < 50000]
+elif income_band == "50k-75k":
+    filtered = filtered[(filtered["Income"] >= 50000) & (filtered["Income"] <= 75000)]
+elif income_band == ">75k":
+    filtered = filtered[filtered["Income"] > 75000]
+
+# Age Distribution
+st.subheader("Age Distribution")
+fig, ax = plt.subplots()
+sns.histplot(filtered["Age"], bins=30, kde=True, ax=ax)
+ax.set_title("Customer Age Distribution")
+st.pyplot(fig)
+
+# Income Distribution
+st.subheader("Income Distribution")
+fig, ax = plt.subplots()
+sns.histplot(filtered["Income"], bins=30, kde=True, ax=ax)
+ax.set_title("Income Distribution")
+st.pyplot(fig)
+
+# Spending Patterns
+st.subheader("Average Spend per Product Category")
+spend_cols = ["MntWines","MntFruits","MntMeatProducts",
+              "MntFishProducts","MntSweetProducts","MntGoldProds"]
+fig, ax = plt.subplots()
+filtered[spend_cols].mean().plot(kind="bar", ax=ax)
+ax.set_title("Average Spend per Product Category")
+st.pyplot(fig)
+
+# Response vs Income
+st.subheader("Income vs Campaign Response")
+fig, ax = plt.subplots()
+sns.boxplot(x="Response", y="Income", data=filtered, ax=ax)
+ax.set_title("Income vs Campaign Response")
+st.pyplot(fig)
+
+# KPI Table
+st.subheader("Segment KPIs")
+segment_summary = filtered.groupby("HighIncome")[["Total_Spend","Response"]].mean()
+st.dataframe(segment_summary)
