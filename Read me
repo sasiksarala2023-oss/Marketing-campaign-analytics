@@ -1,0 +1,4 @@
+Project Overview: This project analyzes customer data from multiple marketing campaigns to identify:
+***Best customer segments***Drivers of campaign acceptance***Spending and channel usage patterns
+
+**The solution integrates Python (EDA + feature engineering), SQL (data modeling + KPIs), and an interactive dashboard (Streamlit or Power BI).
